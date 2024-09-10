@@ -23,11 +23,12 @@ async def root():
     status_code=status.HTTP_201_CREATED,
     response_model_by_alias=False,
 )
-async def create_page(page: PageModel = Body(...)):
+async def create_page(page: PageModel):
     """
     Insert a new page record.
     A unique `id` will be created and provided in the response.
     """
+    print(f'Page request body: {page}')
     new_page = await page_collection.insert_one(
         page.model_dump(by_alias=True, exclude=["id"])
     )
@@ -74,12 +75,13 @@ async def list_pages():
     status_code=status.HTTP_201_CREATED,
     response_model_by_alias=False,
 )
-async def enqueue(queue: QueueCollectionModel = Body(...)):
+async def enqueue(queue: QueueCollectionModel):
     """
     Add crawlable URLs into queue.
     A unique `id` will be created and provided in the response.
     """
-    new_urls = await queue_collection.insert_many(
+    print(queue)
+    await queue_collection.insert_many(
         [url.model_dump(by_alias=True, exclude=["id"]) for url in list(queue)[0][1]]
     )
 
@@ -89,7 +91,7 @@ async def enqueue(queue: QueueCollectionModel = Body(...)):
     "/dequeue",
     response_description="Dequeue URL from queue",
     response_model=str,
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_200_OK,
     response_model_by_alias=False,
 )
 async def dequeue():
@@ -97,10 +99,12 @@ async def dequeue():
     Add crawlable URLs into queue.
     A unique `id` will be created and provided in the response.
     """
-    url = await queue_collection.find_one()
-    if url:
+    found = False
+    url_string = None
+    while not found:
+        url = await queue_collection.find_one()
         url_string = url['url']
         await queue_collection.delete_one({'_id': url['_id']})
-        return url_string
-    else:
-        return '0'
+        if page_collection.find_one({'url':url_string}):
+            found = True
+    return url_string

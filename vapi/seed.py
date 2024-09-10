@@ -1,15 +1,18 @@
 from .main import queue_collection
-from .models import QueueModel, QueueCollectionModel
+from .models import QueueModel
+import asyncio
 
-urls = [
-    'https://www.merriam-webster.com/word-of-the-day',
-    'https://www.bbc.com/news',
-    'https://www.wikipedia.org/',
-    'https://www.youtube.com/@kurzgesagt',
-    'https://openai.com/',
-    'https://www.reddit.com/',
-]
-urls = QueueCollectionModel({QueueModel(url=url) for url in urls}
-)
-queue_collection.delete_many()
-queue_collection.insert_many(urls)
+async def add_starting_point():
+    urls = [
+        'https://www.merriam-webster.com/word-of-the-day',
+        'https://www.bbc.com/news',
+        'https://www.wikipedia.org/',
+        'https://www.youtube.com/@kurzgesagt',
+        'https://openai.com/',
+        'https://www.reddit.com/',
+    ]
+    await queue_collection.delete_many({})
+    await queue_collection.insert_many([QueueModel(url=url).model_dump() for url in urls])
+
+if __name__ == '__main__':
+    asyncio.run(add_starting_point(), debug=True)
