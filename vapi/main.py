@@ -2,9 +2,8 @@
 # TODO: Find better way to batch process and refactor
 
 from fastapi import FastAPI, status, Body
-from .models import PageModel, UpdatePageModel, PageCollectionModel, QueueModel, QueueCollectionModel
+from .models import PageModel, UpdatePageModel, PageCollectionModel, QueueCollectionModel
 import motor.motor_asyncio
-import os
 
 app = FastAPI()
 client = motor.motor_asyncio.AsyncIOMotorClient("mongodb://127.0.0.1:27017/viginition")
@@ -19,38 +18,21 @@ async def root():
 @app.post(
     "/pages/create-page",
     response_description="Add a single new Page",
-    response_model=PageModel,
-    status_code=status.HTTP_201_CREATED,
-    response_model_by_alias=False,
-)
-async def create_page(page: PageModel):
-    """
-    Insert a new page record.
-    A unique `id` will be created and provided in the response.
-    """
-    print(f'Page request body: {page}')
-    new_page = await page_collection.insert_one(
-        page.model_dump(by_alias=True, exclude=["id"])
-    )
-    created_page = await page_collection.find_one(
-        {"_id": new_page.inserted_id}
-    )
-    return created_page
-
-@app.post(
-    "/pages/create-pages",
-    response_description="Add several Pages",
     response_model=str,
     status_code=status.HTTP_201_CREATED,
     response_model_by_alias=False,
 )
-async def create_pages(pages: PageCollectionModel = Body(...)):
+async def create_page(page: UpdatePageModel):
     """
     Insert a new page record.
     A unique `id` will be created and provided in the response.
     """
-    # Why the duck is batch insert so complicated? All because _id and id dont match?
-    new_pages = await page_collection.insert_many([page.model_dump(by_alias=True, exclude=["id"]) for page in  list(pages)[0][1]])
+    try:
+        await page_collection.find_one_and_update(filter={'url': page.url}, update={'text': page.text, 'outgoing': page.outgoing, 'last_crawled': page.last_crawled})
+    except:
+        await page_collection.insert_one(
+        page.model_dump(by_alias=True, exclude=["id"])
+    )
 
     return 'Done'
 
@@ -84,7 +66,6 @@ async def enqueue(queue: QueueCollectionModel):
     await queue_collection.insert_many(
         [url.model_dump(by_alias=True, exclude=["id"]) for url in list(queue)[0][1]]
     )
-
     return 'Done'
 
 @app.delete(
