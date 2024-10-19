@@ -15,6 +15,7 @@ class PageModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     url: str = Field(...)
     text: List[str] = Field(...)
+    anchor_text: Optional[str] = Field(...)
     outgoing: Optional[List[str]] = Field(default=None)
     last_crawled: datetime = Field(..., le=datetime.today())
     model_config = ConfigDict(
@@ -29,6 +30,7 @@ class UpdatePageModel(BaseModel):
     """
     url: Optional[str] = None
     text: Optional[List[str]] = None
+    anchor_text: Optional[str] = None
     outgoing: Optional[List[str]] = None
     last_crawled: Optional[datetime] = None
     model_config = ConfigDict(

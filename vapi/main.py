@@ -62,10 +62,10 @@ async def enqueue(queue: QueueCollectionModel):
     Add crawlable URLs into queue.
     A unique `id` will be created and provided in the response.
     """
-    print(queue)
-    await queue_collection.insert_many(
-        [url.model_dump(by_alias=True, exclude=["id"]) for url in list(queue)[0][1]]
-    )
+    if len(list(queue)[0][1]) > 0:
+        await queue_collection.insert_many(
+            [url.model_dump(by_alias=True, exclude=["id"]) for url in list(queue)[0][1]]
+        )
     return 'Done'
 
 @app.delete(
