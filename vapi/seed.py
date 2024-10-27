@@ -1,4 +1,4 @@
-from .main import queue_collection
+from .main import queue_collection, page_collection
 from .models import QueueModel
 import asyncio
 
@@ -13,6 +13,7 @@ async def add_starting_point():
     ]
     await queue_collection.delete_many({})
     await queue_collection.insert_many([QueueModel(url=url).model_dump() for url in urls])
+    await page_collection.delete_many({})
 
 if __name__ == '__main__':
     asyncio.run(add_starting_point(), debug=True)

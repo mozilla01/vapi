@@ -14,6 +14,7 @@ class PageModel(BaseModel):
     """
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     url: str = Field(...)
+    title: Optional[str] = Field(...)
     text: List[str] = Field(...)
     anchor_text: Optional[str] = Field(...)
     outgoing: Optional[List[str]] = Field(default=None)
@@ -30,6 +31,7 @@ class UpdatePageModel(BaseModel):
     """
     url: Optional[str] = None
     text: Optional[List[str]] = None
+    title: Optional[str] = None
     anchor_text: Optional[str] = None
     outgoing: Optional[List[str]] = None
     last_crawled: Optional[datetime] = None

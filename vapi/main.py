@@ -28,7 +28,7 @@ async def create_page(page: UpdatePageModel):
     A unique `id` will be created and provided in the response.
     """
     try:
-        await page_collection.find_one_and_update(filter={'url': page.url}, update={'text': page.text, 'outgoing': page.outgoing, 'last_crawled': page.last_crawled})
+        await page_collection.find_one_and_update(filter={'url': page.url}, update={'text': page.text, 'title': page.title, 'outgoing': page.outgoing, 'last_crawled': page.last_crawled})
     except:
         await page_collection.insert_one(
         page.model_dump(by_alias=True, exclude=["id"])
@@ -77,8 +77,7 @@ async def enqueue(queue: QueueCollectionModel):
 )
 async def dequeue():
     """
-    Add crawlable URLs into queue.
-    A unique `id` will be created and provided in the response.
+    Remove an unvisited URL from the queue.
     """
     found = False
     url_string = None
@@ -86,6 +85,6 @@ async def dequeue():
         url = await queue_collection.find_one()
         url_string = url['url']
         await queue_collection.delete_one({'_id': url['_id']})
-        if page_collection.find_one({'url':url_string}):
+        if not len(await page_collection.find({'url':url_string}).to_list()) > 0:
             found = True
     return url_string
