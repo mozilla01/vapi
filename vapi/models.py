@@ -12,6 +12,7 @@ class PageModel(BaseModel):
     """
     Container for a single Page record
     """
+
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     url: str = Field(...)
     title: Optional[str] = Field(...)
@@ -23,12 +24,14 @@ class PageModel(BaseModel):
         populate_by_name=True,
         arbitrary_types_allowed=True,
     )
+    rank: Optional[float] = Field(default=0.0)
 
 
 class UpdatePageModel(BaseModel):
     """
     A set of optional updates to be made to a document in the database
     """
+
     url: Optional[str] = None
     text: Optional[List[str]] = None
     title: Optional[str] = None
@@ -36,9 +39,9 @@ class UpdatePageModel(BaseModel):
     outgoing: Optional[List[str]] = None
     last_crawled: Optional[datetime] = None
     model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        json_encoders={ObjectId: str}
+        arbitrary_types_allowed=True, json_encoders={ObjectId: str}
     )
+    rank: Optional[float] = None
 
 
 class PageCollectionModel(BaseModel):
@@ -53,6 +56,8 @@ class PageCollectionModel(BaseModel):
 
 class QueueModel(BaseModel):
     url: str = Field(...)
+    respects_robots: bool = Field(...)
+    anchor_text: Optional[str] = Field(default=None)
 
 
 class QueueCollectionModel(BaseModel):
@@ -61,4 +66,5 @@ class QueueCollectionModel(BaseModel):
 
     This exists because providing a top-level array in a JSON response can be a [vulnerability](https://haacked.com/archive/2009/06/25/json-hijacking.aspx/)
     """
+
     urls: List[QueueModel]

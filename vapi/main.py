@@ -2,7 +2,12 @@
 # TODO: Find better way to batch process and refactor
 
 from fastapi import FastAPI, status, Body
-from .models import PageModel, UpdatePageModel, PageCollectionModel, QueueCollectionModel
+from .models import (
+    PageModel,
+    UpdatePageModel,
+    PageCollectionModel,
+    QueueCollectionModel,
+)
 import motor.motor_asyncio
 
 app = FastAPI()
@@ -11,9 +16,11 @@ db = client.viginition
 page_collection = db.get_collection("pages")
 queue_collection = db.get_collection("queue")
 
+
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
+
 
 @app.post(
     "/pages/create-page",
@@ -27,14 +34,26 @@ async def create_page(page: UpdatePageModel):
     Insert a new page record.
     A unique `id` will be created and provided in the response.
     """
-    try:
-        await page_collection.find_one_and_update(filter={'url': page.url}, update={'text': page.text, 'title': page.title, 'outgoing': page.outgoing, 'last_crawled': page.last_crawled})
-    except:
-        await page_collection.insert_one(
-        page.model_dump(by_alias=True, exclude=["id"])
-    )
+    find_page = await page_collection.find_one({"url": page.url})
+    if find_page:
+        await page_collection.find_one_and_update(
+            {"url": page.url},
+            {
+                "$set": {
+                    "text": page.text,
+                    "title": page.title,
+                    "outgoing": page.outgoing,
+                    "last_crawled": page.last_crawled,
+                }
+            },
+        )
+        print("FOUND EXISTING PAGE")
+    else:
+        await page_collection.insert_one(page.model_dump(by_alias=True, exclude=["id"]))
+        print("CREATED NEW PAGE")
 
-    return 'Done'
+    return "Done"
+
 
 @app.get(
     "/pages/",
@@ -62,11 +81,21 @@ async def enqueue(queue: QueueCollectionModel):
     Add crawlable URLs into queue.
     A unique `id` will be created and provided in the response.
     """
-    if len(list(queue)[0][1]) > 0:
-        await queue_collection.insert_many(
-            [url.model_dump(by_alias=True, exclude=["id"]) for url in list(queue)[0][1]]
-        )
-    return 'Done'
+    queueList = list(queue)[0][1]
+    if len(queueList) > 0:
+        for url in queueList:
+            if url.respects_robots:
+                await queue_collection.insert_one(
+                    url.model_dump(
+                        by_alias=True, exclude=["id", "anchor_text", "respects_robots"]
+                    )
+                )
+            if not len(await page_collection.find({"url": url.url}).to_list()) > 0:
+                await page_collection.insert_one(
+                    url.model_dump(by_alias=True, exclude=["id", "respects_robots"])
+                )
+    return "Done"
+
 
 @app.delete(
     "/dequeue",
@@ -83,8 +112,11 @@ async def dequeue():
     url_string = None
     while not found:
         url = await queue_collection.find_one()
-        url_string = url['url']
-        await queue_collection.delete_one({'_id': url['_id']})
-        if not len(await page_collection.find({'url':url_string}).to_list()) > 0:
+        url_string = url["url"]
+        await queue_collection.delete_one({"_id": url["_id"]})
+        lst = await page_collection.find(
+            {"url": url_string, "last_crawled": {"$exists": True}}
+        ).to_list()
+        if not len(lst) > 0:
             found = True
     return url_string

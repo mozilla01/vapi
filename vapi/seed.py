@@ -12,7 +12,7 @@ async def add_starting_point():
         'https://www.reddit.com/',
     ]
     await queue_collection.delete_many({})
-    await queue_collection.insert_many([QueueModel(url=url).model_dump() for url in urls])
+    await queue_collection.insert_many([QueueModel(url=url, respects_robots=True).model_dump(exclude=['respects_robots', 'anchor_text']) for url in urls])
     await page_collection.delete_many({})
 
 if __name__ == '__main__':
