@@ -3,7 +3,6 @@
 
 from fastapi import FastAPI, status, Body
 from .models import (
-    PageModel,
     UpdatePageModel,
     PageCollectionModel,
     QueueCollectionModel,
@@ -15,6 +14,8 @@ client = motor.motor_asyncio.AsyncIOMotorClient("mongodb://127.0.0.1:27017/vigin
 db = client.viginition
 page_collection = db.get_collection("pages")
 queue_collection = db.get_collection("queue")
+index_collection = db.get_collection("index")
+incoming_collection = db.get_collection("incoming")
 
 
 @app.get("/")

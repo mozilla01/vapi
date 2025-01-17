@@ -68,3 +68,30 @@ class QueueCollectionModel(BaseModel):
     """
 
     urls: List[QueueModel]
+
+
+class IndexPageEntryModel(BaseModel):
+    """
+    Helper model that contains info about the page the word was found on
+    """
+
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    page_id: Optional[PyObjectId] = Field(default=None)
+    frequency: int = Field(...)
+    positions: List[tuple] = Field(...)
+    anchor: bool = Field(...)
+    title: bool = Field(...)
+
+
+class IndexModel(BaseModel):
+    """
+    A container for the index of the search engine
+    """
+
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    word: str = Field(...)
+    pages: List[IndexPageEntryModel] = Field(...)
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+    )

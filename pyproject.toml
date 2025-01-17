@@ -6,11 +6,13 @@ authors = ["mozilla01 <moizrocks12345@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.10"
 fastapi = {extras = ["standard"], version = "^0.114.0"}
 motor = "^3.6.0"
 pytest = "^8.3.3"
-
+nltk = "^3.9.1"
+spacy = { version = "^3.8.3", python = ">=3.9,<3.13" }
+colorama = "^0.4.6"
 
 [build-system]
 requires = ["poetry-core"]
