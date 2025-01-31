@@ -16,6 +16,8 @@ class PageModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     url: str = Field(...)
     title: Optional[str] = Field(...)
+    description: Optional[str] = None
+    keywords: Optional[str] = None
     text: List[str] = Field(...)
     anchor_text: Optional[str] = Field(...)
     outgoing: Optional[List[str]] = Field(default=None)
@@ -35,6 +37,8 @@ class UpdatePageModel(BaseModel):
     url: Optional[str] = None
     text: Optional[List[str]] = None
     title: Optional[str] = None
+    description: Optional[str] = None
+    keywords: Optional[str] = None
     anchor_text: Optional[str] = None
     outgoing: Optional[List[str]] = None
     last_crawled: Optional[datetime] = None
@@ -56,7 +60,6 @@ class PageCollectionModel(BaseModel):
 
 class QueueModel(BaseModel):
     url: str = Field(...)
-    respects_robots: bool = Field(...)
     anchor_text: Optional[str] = Field(default=None)
 
 

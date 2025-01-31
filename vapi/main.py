@@ -1,13 +1,17 @@
 # TODO: Conditional API responses
 # TODO: Find better way to batch process and refactor
 
-from fastapi import FastAPI, status, Body
+from fastapi import FastAPI, status
 from .models import (
     UpdatePageModel,
     PageCollectionModel,
     QueueCollectionModel,
 )
 import motor.motor_asyncio
+from nltk.corpus import stopwords
+import spacy
+from bson.objectid import ObjectId
+
 
 app = FastAPI()
 client = motor.motor_asyncio.AsyncIOMotorClient("mongodb://127.0.0.1:27017/viginition")
@@ -16,6 +20,9 @@ page_collection = db.get_collection("pages")
 queue_collection = db.get_collection("queue")
 index_collection = db.get_collection("index")
 incoming_collection = db.get_collection("incoming")
+
+stopwords = set(stopwords.words("english"))
+nlp = spacy.load("en_core_web_sm")
 
 
 @app.get("/")
@@ -43,12 +50,13 @@ async def create_page(page: UpdatePageModel):
                 "$set": {
                     "text": page.text,
                     "title": page.title,
+                    "description": page.description,
+                    "keywords": page.keywords,
                     "outgoing": page.outgoing,
                     "last_crawled": page.last_crawled,
                 }
             },
         )
-        print("FOUND EXISTING PAGE")
     else:
         await page_collection.insert_one(page.model_dump(by_alias=True, exclude=["id"]))
         print("CREATED NEW PAGE")
@@ -85,39 +93,91 @@ async def enqueue(queue: QueueCollectionModel):
     queueList = list(queue)[0][1]
     if len(queueList) > 0:
         for url in queueList:
-            if url.respects_robots:
+            if not len(await queue_collection.find({"url": url.url}).to_list()) > 0:
                 await queue_collection.insert_one(
-                    url.model_dump(
-                        by_alias=True, exclude=["id", "anchor_text", "respects_robots"]
-                    )
+                    url.model_dump(by_alias=True, exclude=["id", "anchor_text"])
                 )
+
+            # We cant visit the page, but it may be important, so we add it
             if not len(await page_collection.find({"url": url.url}).to_list()) > 0:
                 await page_collection.insert_one(
-                    url.model_dump(by_alias=True, exclude=["id", "respects_robots"])
+                    url.model_dump(by_alias=True, exclude=["id"])
                 )
+
     return "Done"
 
 
 @app.delete(
     "/dequeue",
     response_description="Dequeue URL from queue",
-    response_model=str,
+    response_model=list[str],
     status_code=status.HTTP_200_OK,
     response_model_by_alias=False,
 )
 async def dequeue():
     """
-    Remove an unvisited URL from the queue.
+    Remove unvisited URLs from the queue.
     """
-    found = False
-    url_string = None
-    while not found:
-        url = await queue_collection.find_one()
-        url_string = url["url"]
-        await queue_collection.delete_one({"_id": url["_id"]})
-        lst = await page_collection.find(
-            {"url": url_string, "last_crawled": {"$exists": True}}
-        ).to_list()
-        if not len(lst) > 0:
-            found = True
-    return url_string
+    urls = []
+    while len(urls) < 5:
+        # lock helps send different urls to different threads
+        # can probably use MongoDB transactions
+        url = await queue_collection.find_one_and_delete({})
+        urls.append(url["url"])
+    return urls
+
+
+@app.get("/search")
+async def search(query: str, level: int = 1, limit: int = 10):
+    """
+    Receive and respond to a user query.
+    """
+
+    link_frequency = {}
+    for word in nlp(query):
+        token = word.lemma_.lower().strip()
+        if token in stopwords:
+            continue
+        entry = await index_collection.find_one({"word": token})
+        if entry:
+            for page in entry["pages"]:
+                link_frequency[page["page_id"]] = (
+                    {"positions": [], "big_score": 0, "score": 0}
+                    if page["page_id"] not in link_frequency
+                    else link_frequency[page["page_id"]]
+                )
+                link_frequency[page["page_id"]]["score"] += 1
+                link_frequency[page["page_id"]]["big_score"] += (
+                    page["anchor"] + page["title"]
+                )
+                link_frequency[page["page_id"]]["positions"].extend(page["positions"])
+
+    links = list(link_frequency.items())
+    pages = []
+    for link in links:
+        page = await page_collection.find_one({"_id": ObjectId(link[0])}, {"_id": 0})
+        page["score"] = link[1]["score"]
+        page["big_score"] = link[1]["big_score"]
+        page["relevant_text"] = []
+        for position in link[1]["positions"]:
+            (
+                page["relevant_text"].append(page["text"][position[0] - 1])
+                if position[0] > 0
+                else 0
+            )
+            page["relevant_text"].append(page["text"][position[0]])
+            (
+                page["relevant_text"].append(page["text"][position[0] + 1])
+                if position[0] < len(page["text"]) - 1
+                else 0
+            )
+        page.pop("text", None)
+        page.pop("outgoing", None)
+        page.pop("last_crawled", None)
+        pages.append(page)
+
+    pages = sorted(
+        pages, key=lambda x: (x["big_score"], x["score"], x["rank"]), reverse=True
+    )
+
+    return pages[(level - 1) * limit : level * limit]
