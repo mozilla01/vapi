@@ -11,12 +11,16 @@ import motor.motor_asyncio
 from nltk.corpus import stopwords
 import spacy
 from bson.objectid import ObjectId
+from dotenv import load_dotenv
+import os
 
-
+load_dotenv()
 app = FastAPI()
-client = motor.motor_asyncio.AsyncIOMotorClient("mongodb://127.0.0.1:27017/viginition")
+MONGODB_URL = os.getenv("MONGODB_URL")
+client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL)
 db = client.viginition
 page_collection = db.get_collection("pages")
+proc_page_collection = db.get_collection("pages_processed")
 queue_collection = db.get_collection("queue")
 index_collection = db.get_collection("index")
 incoming_collection = db.get_collection("incoming")
@@ -119,7 +123,7 @@ async def dequeue():
     Remove unvisited URLs from the queue.
     """
     urls = []
-    while len(urls) < 5:
+    while len(urls) < 3:
         # lock helps send different urls to different threads
         # can probably use MongoDB transactions
         url = await queue_collection.find_one_and_delete({})
@@ -155,7 +159,9 @@ async def search(query: str, level: int = 1, limit: int = 10):
     links = list(link_frequency.items())
     pages = []
     for link in links:
-        page = await page_collection.find_one({"_id": ObjectId(link[0])}, {"_id": 0})
+        page = await proc_page_collection.find_one(
+            {"_id": ObjectId(link[0])}, {"_id": 0}
+        )
         page["score"] = link[1]["score"]
         page["big_score"] = link[1]["big_score"]
         page["relevant_text"] = []

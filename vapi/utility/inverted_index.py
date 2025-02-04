@@ -1,5 +1,5 @@
 from ..models import IndexPageEntryModel
-from ..main import page_collection, index_collection
+from ..main import proc_page_collection, index_collection
 from nltk.corpus import stopwords
 import string
 import spacy
@@ -13,7 +13,7 @@ async def build_inverted_text_index():
     nlp = spacy.load("en_core_web_sm")
     stop_words = set(stopwords.words("english"))
 
-    async for page in page_collection.find(filter={"text": {"$exists": True}}):
+    async for page in proc_page_collection.find(filter={"text": {"$exists": True}}):
         print("-" * 50)
         print(f'Indexing page {page["_id"]}: {page["url"]}')
         word_count = {}
@@ -59,6 +59,16 @@ async def build_inverted_text_index():
                         else False
                     ),
                     title=word in page["title"].lower(),
+                    description=(
+                        word in page["description"].lower()
+                        if "description" in page
+                        else False
+                    ),
+                    keywords=(
+                        word in page["keywords"].lower()
+                        if "keywords" in page
+                        else False
+                    ),
                 )
                 await index_collection.find_one_and_update(
                     {"word": word},

@@ -1,4 +1,4 @@
-from ..main import page_collection, incoming_collection
+from ..main import proc_page_collection, incoming_collection
 from multiprocessing import Pool
 import asyncio
 import sys
@@ -28,7 +28,7 @@ async def rank_pages():
     print(Fore.GREEN + f"Setting initial ranks as {1 / count}")
     print("-" * 50)
     duplicate_page_ranks = {}
-    async for page in page_collection.find():
+    async for page in proc_page_collection.find():
         print(f'Setting initial rank for page {page["_id"]}')
         page_ranks[page["url"]] = -1
         duplicate_page_ranks[page["url"]] = 1 / count
@@ -39,7 +39,7 @@ async def rank_pages():
         print(Fore.CYAN + f"Starting iteration {iteration}")
         page_ranks = duplicate_page_ranks.copy()
         cumulative_sink_rank = 0
-        async for page in page_collection.find():
+        async for page in proc_page_collection.find():
             if "outgoing" not in page or len(page["outgoing"]) == 0:
                 cumulative_sink_rank += page_ranks[page["url"]] / (count - 1)
 
@@ -50,9 +50,9 @@ async def rank_pages():
             for incoming in page["incoming"]:
                 print(f"Incoming link: {incoming}")
                 if incoming != page["url"]:
-                    outgoing_list = (await page_collection.find_one({"url": incoming}))[
-                        "outgoing"
-                    ]
+                    outgoing_list = (
+                        await proc_page_collection.find_one({"url": incoming})
+                    )["outgoing"]
                     rank += (
                         d
                         * page_ranks[incoming]
@@ -79,7 +79,7 @@ async def rank_pages():
     print("Writing ranks to the database")
     for url, rank in duplicate_page_ranks.items():
         print(f"Updating rank for page {url}")
-        await page_collection.update_one({"url": url}, {"$set": {"rank": rank}})
+        await proc_page_collection.update_one({"url": url}, {"$set": {"rank": rank}})
 
 
 if __name__ == "__main__":
