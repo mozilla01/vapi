@@ -16,7 +16,7 @@ import os
 
 load_dotenv()
 app = FastAPI()
-MONGODB_URL = os.getenv("MONGODB_URL")
+MONGODB_URL = os.getenv("MONGODB_LOCAL_URL")
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL)
 db = client.viginition
 page_collection = db.get_collection("pages")
@@ -63,23 +63,8 @@ async def create_page(page: UpdatePageModel):
         )
     else:
         await page_collection.insert_one(page.model_dump(by_alias=True, exclude=["id"]))
-        print("CREATED NEW PAGE")
 
     return "Done"
-
-
-@app.get(
-    "/pages/",
-    response_description="List all pages",
-    response_model=PageCollectionModel,
-    response_model_by_alias=False,
-)
-async def list_pages():
-    """
-    List all of the student data in the database.
-    The response is unpaginated and limited to 1000 results.
-    """
-    return PageCollectionModel(pages=await page_collection.find().to_list(1000))
 
 
 @app.post(
@@ -94,19 +79,21 @@ async def enqueue(queue: QueueCollectionModel):
     Add crawlable URLs into queue.
     A unique `id` will be created and provided in the response.
     """
-    queueList = list(queue)[0][1]
-    if len(queueList) > 0:
-        for url in queueList:
-            if not len(await queue_collection.find({"url": url.url}).to_list()) > 0:
-                await queue_collection.insert_one(
-                    url.model_dump(by_alias=True, exclude=["id", "anchor_text"])
-                )
+    urls = queue.model_dump(by_alias=True)["urls"]
 
-            # We cant visit the page, but it may be important, so we add it
-            if not len(await page_collection.find({"url": url.url}).to_list()) > 0:
-                await page_collection.insert_one(
-                    url.model_dump(by_alias=True, exclude=["id"])
-                )
+    try:
+        await page_collection.insert_many(urls, ordered=False)
+    except Exception as e:
+        print("Duplicate URLs not inserted into pages")
+
+    cleaned_urls = [
+        {k: v for k, v in entry.items() if k != "anchor_text"} for entry in urls
+    ]
+
+    try:
+        await queue_collection.insert_many(cleaned_urls, ordered=False)
+    except Exception as e:
+        print("Duplicate URLs not inserted into queue")
 
     return "Done"
 
