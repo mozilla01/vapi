@@ -8,6 +8,21 @@ from bson import ObjectId
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
 
+class QueueModel(BaseModel):
+    url: str = Field(...)
+    anchor_text: Optional[str] = Field(default=None)
+
+
+class QueueCollectionModel(BaseModel):
+    """
+    A container holding a list of `QueueModel` instances.
+
+    This exists because providing a top-level array in a JSON response can be a [vulnerability](https://haacked.com/archive/2009/06/25/json-hijacking.aspx/)
+    """
+
+    urls: List[QueueModel]
+
+
 class PageModel(BaseModel):
     """
     Container for a single Page record
@@ -26,7 +41,6 @@ class PageModel(BaseModel):
         populate_by_name=True,
         arbitrary_types_allowed=True,
     )
-    rank: Optional[float] = Field(default=0.0)
 
 
 class UpdatePageModel(BaseModel):
@@ -45,7 +59,6 @@ class UpdatePageModel(BaseModel):
     model_config = ConfigDict(
         arbitrary_types_allowed=True, json_encoders={ObjectId: str}
     )
-    rank: Optional[float] = None
 
 
 class PageCollectionModel(BaseModel):
@@ -56,21 +69,6 @@ class PageCollectionModel(BaseModel):
     """
 
     pages: List[PageModel]
-
-
-class QueueModel(BaseModel):
-    url: str = Field(...)
-    anchor_text: Optional[str] = Field(default=None)
-
-
-class QueueCollectionModel(BaseModel):
-    """
-    A container holding a list of `QueueModel` instances.
-
-    This exists because providing a top-level array in a JSON response can be a [vulnerability](https://haacked.com/archive/2009/06/25/json-hijacking.aspx/)
-    """
-
-    urls: List[QueueModel]
 
 
 class IndexPageEntryModel(BaseModel):
