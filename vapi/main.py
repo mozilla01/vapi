@@ -2,6 +2,7 @@
 # TODO: Find better way to batch process and refactor
 
 from fastapi import FastAPI, status
+from fastapi.middleware.cors import CORSMiddleware
 from .models import (
     UpdatePageModel,
     PageCollectionModel,
@@ -14,11 +15,23 @@ from bson.objectid import ObjectId
 from dotenv import load_dotenv
 import os
 
+origins = ["http://localhost", "http://localhost:3000", "http://127.0.0.1:3000"]
+
 load_dotenv()
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 MONGODB_URL = os.getenv("MONGODB_URL")
+print(MONGODB_URL)
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL)
-db = client.viginition
+db = client.viginition_demo
 page_collection = db.get_collection("pages")
 proc_page_collection = db.get_collection("pages_processed")
 queue_collection = db.get_collection("queue")
@@ -183,7 +196,18 @@ async def search(query: str, level: int = 1, limit: int = 10):
         pages.append(page)
 
     pages = sorted(
-        pages, key=lambda x: (x["big_score"], x["score"], x["rank"]), reverse=True
+        pages, key=lambda x: (x["score"], x["big_score"], x["rank"]), reverse=True
     )
 
     return pages[(level - 1) * limit : level * limit]
+
+
+@app.get("/get-news")
+async def get_news():
+    """
+    Get the latest news from the BBC News URLs collection.
+    """
+    # Return urls starting with https://www.bbc.com/news/articles/...
+    return await page_collection.find(
+        {"url": {"$regex": "^https://www.bbc.com/news/articles/"}}
+    ).to_list(10)
