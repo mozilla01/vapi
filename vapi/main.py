@@ -30,7 +30,7 @@ app.add_middleware(
 MONGODB_URL = os.getenv("MONGODB_URL")
 print(MONGODB_URL)
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL)
-db = client.viginition_demo
+db = client.viginition
 page_collection = db.get_collection("pages")
 proc_page_collection = db.get_collection("pages_processed")
 queue_collection = db.get_collection("queue")
@@ -98,9 +98,14 @@ async def enqueue(queue: QueueCollectionModel):
     except Exception as e:
         print("Duplicate URLs not inserted into pages")
 
-    cleaned_urls = [
-        {k: v for k, v in entry.items() if k != "anchor_text"} for entry in urls
-    ]
+    cleaned_urls = []
+    for entry in urls:
+        result = await page_collection.find_one({"url": entry["url"], "text": { "$exists": True }})
+        if result is None:
+            print(f"Adding URL to queue: {entry['url']}")
+            cleaned_urls.append({"url": entry["url"]})
+        else:
+            print(f"Duplicate URL found in pages: {entry['url']}")
 
     try:
         await queue_collection.insert_many(cleaned_urls, ordered=False)
@@ -182,7 +187,7 @@ async def search(query: str, level: int = 1, limit: int = 10):
         pages.append(page)
 
     pages = sorted(
-        pages, key=lambda x: (x["score"], x["big_score"], x["rank"]), reverse=True
+        pages, key=lambda x: (x["big_score"], x["score"], x["rank"]), reverse=True
     )
 
     return pages[(level - 1) * limit : level * limit]

@@ -1,0 +1,5 @@
+https://owasp.org
+https://attack.mitre.org
+https://www.cisa.gov/
+https://www.nist.gov/cyberframework
+https://book.hacktricks.xyz
