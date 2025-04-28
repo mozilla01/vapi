@@ -15,7 +15,13 @@ from bson.objectid import ObjectId
 from dotenv import load_dotenv
 import os
 
-origins = ["http://localhost", "http://localhost:3000", "http://127.0.0.1:3000"]
+origins = [
+    "http://localhost",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8001",
+    "http://127.0.0.1:8001",
+]
 
 load_dotenv()
 app = FastAPI()
@@ -100,7 +106,9 @@ async def enqueue(queue: QueueCollectionModel):
 
     cleaned_urls = []
     for entry in urls:
-        result = await page_collection.find_one({"url": entry["url"], "text": { "$exists": True }})
+        result = await page_collection.find_one(
+            {"url": entry["url"], "text": {"$exists": True}}
+        )
         if result is None:
             print(f"Adding URL to queue: {entry['url']}")
             cleaned_urls.append({"url": entry["url"]})
@@ -131,6 +139,8 @@ async def dequeue():
         # lock helps send different urls to different threads
         # can probably use MongoDB transactions
         url = await queue_collection.find_one_and_delete({})
+        if url is None:
+            break
         urls.append(url["url"])
     return urls
 
